@@ -103,6 +103,30 @@ int main(void)
     }
     printf("Shader program OK (id %u)\n", program);
 
+
+    float vertices[] = {
+        // triangle 1
+        -0.5f, -0.5f,
+        0.5f, -0.5f,
+        0.5f, 0.5f,
+        // triangle 2
+        -0.5f, -0.5f,
+        0.5f, 0.5f,
+        -0.5f, 0.5f,
+    };
+
+    GLuint vao, vbo;
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
+
+    glGenBuffers(1, &vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void *)0);
+    glEnableVertexAttribArray(0);
+
+
 	int running = 1;
 
 	while (running) {
@@ -115,16 +139,24 @@ int main(void)
 			if (e.type == SDL_EVENT_KEY_DOWN) {
                 if (e.key.key == SDLK_ESCAPE) {
 				    running = 0;
-                }            
+                }
             }
 		}
 
 		glClearColor(0.2f, 0.2f, 0.4f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
+
+        glUseProgram(program);
+        glBindVertexArray(vao);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+
 		SDL_GL_SwapWindow(window);
 	}
 
     glDeleteProgram(program);
+    glDeleteBuffers(1, &vbo);
+    glDeleteVertexArrays(1, &vao);
+
 	SDL_GL_DestroyContext(ctx);
 	SDL_DestroyWindow(window);
 	SDL_Quit();
