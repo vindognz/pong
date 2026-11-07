@@ -9,9 +9,10 @@ static const char *vert_src =
     "#version 330 core\n"
     "layout (location = 0) in vec2 aPos;\n"
     "uniform mat4 uProjection;\n"
+    "uniform vec2 uPos;\n"
     "void main()\n"
     "{\n"
-    "\tgl_Position = uProjection * vec4(aPos, 0.0, 1.0);\n"
+    "\tgl_Position = uProjection * vec4(aPos + uPos, 0.0, 1.0);\n"
     "}\n";
 
 static const char *frag_src =
@@ -128,17 +129,27 @@ int main(void) {
         fprintf(stderr, "uProjection not found");
     }
 
+    GLint pos_loc = glGetUniformLocation(program, "uPos");
+    if (pos_loc < 0) {
+        fprintf(stderr, "uPos not found");
+    }
+
+    float x = WIN_W / 2.0f;
+    float y = WIN_H / 2.0f;
+    float vx = 300.0f; // pixels per second
+
+    Uint64 last = SDL_GetTicksNS();
+
     glUseProgram(program);
     glUniformMatrix4fv(proj_loc, 1, GL_FALSE, proj);
 
-
     float vertices[] = {
-        350.0f, 250.0f,
-        450.0f, 250.0f,
-        450.0f, 350.0f,
-        350.0f, 250.0f,
-        450.0f, 350.0f,
-        350.0f, 350.0f,
+        -50.0f, -50.0f,
+        50.0f, -50.0f,
+        50.0f, 50.0f,
+        -50.0f, -50.0f,
+        50.0f, 50.0f,
+        -50.0f, 50.0f,
     };
 
     GLuint vao, vbo;
@@ -169,10 +180,26 @@ int main(void) {
             }
         }
 
+        Uint64 now = SDL_GetTicksNS();
+        float dt = (float) (now - last) / 1000000000.0f;
+        last = now;
+
+        x += vx * dt;
+        if (x + 50.0f > WIN_W) {
+            x = WIN_W - 50.0f;
+            vx = -vx;
+        }
+        if (x - 50.0f < 0.0f) {
+            x = 50.0f;
+            vx = -vx;
+        }
+
+
         glClearColor(0.2f, 0.2f, 0.4f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
         glUseProgram(program);
+        glUniform2f(pos_loc, x, y);
         glBindVertexArray(vao);
         glDrawArrays(GL_TRIANGLES, 0, 6);
 
