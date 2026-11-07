@@ -5,22 +5,28 @@
 #define WIN_W 800
 #define WIN_H 600
 
+#define PADDLE_W  20.0f
+#define PADDLE_H  100.0f
+#define BALL_SIZE 20.0f
+
 static const char *vert_src =
     "#version 330 core\n"
     "layout (location = 0) in vec2 aPos;\n"
     "uniform mat4 uProjection;\n"
     "uniform vec2 uPos;\n"
+    "uniform vec2 uSize;\n"
     "void main()\n"
     "{\n"
-    "\tgl_Position = uProjection * vec4(aPos + uPos, 0.0, 1.0);\n"
+    "\tgl_Position = uProjection * vec4(aPos * uSize + uPos, 0.0, 1.0);\n"
     "}\n";
 
 static const char *frag_src =
     "#version 330 core\n"
     "out vec4 FragColor;\n"
+    "uniform vec3 uColor;\n"
     "void main()\n"
     "{\n"
-    "\tFragColor = vec4(1.0, 1.0, 1.0, 1.0);\n"
+    "\tFragColor = vec4(uColor, 1.0);\n"
     "}\n";
 
 static GLuint compile_shader(GLenum type, const char *src) {
@@ -83,6 +89,15 @@ static void ortho(float *m, float left, float right, float top, float bottom) {
     m[15] = 1.0f;
 }
 
+static GLint pos_loc, size_loc, color_loc;
+
+static void draw_rect(float x, float y, float w, float h, float r, float g, float b) {
+    glUniform2f(pos_loc, x, y);
+    glUniform2f(size_loc, w, h);
+    glUniform3f(color_loc, r, g, b);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+}
+
 int main(void) {
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
@@ -129,27 +144,31 @@ int main(void) {
         fprintf(stderr, "uProjection not found");
     }
 
-    GLint pos_loc = glGetUniformLocation(program, "uPos");
-    if (pos_loc < 0) {
-        fprintf(stderr, "uPos not found");
-    }
+    glUseProgram(program);
+    glUniformMatrix4fv(proj_loc, 1, GL_FALSE, proj);
+
+
+    pos_loc = glGetUniformLocation(program, "uPos");
+    size_loc = glGetUniformLocation(program, "uSize");
+    color_loc = glGetUniformLocation(program, "uColor");
 
     float x = WIN_W / 2.0f;
     float y = WIN_H / 2.0f;
     float vx = 300.0f; // pixels per second
 
-    Uint64 last = SDL_GetTicksNS();
+    float left_y =  WIN_H / 2.0f;
+    float right_y = WIN_H / 2.0f;
 
-    glUseProgram(program);
-    glUniformMatrix4fv(proj_loc, 1, GL_FALSE, proj);
+    Uint64 last = SDL_GetTicksNS();
+    
 
     float vertices[] = {
-        -50.0f, -50.0f,
-        50.0f, -50.0f,
-        50.0f, 50.0f,
-        -50.0f, -50.0f,
-        50.0f, 50.0f,
-        -50.0f, 50.0f,
+        -0.5f, -0.5f,
+         0.5f, -0.5f,
+         0.5f,  0.5f,
+        -0.5f, -0.5f,
+         0.5f,  0.5f,
+        -0.5f,  0.5f,
     };
 
     GLuint vao, vbo;
@@ -185,12 +204,12 @@ int main(void) {
         last = now;
 
         x += vx * dt;
-        if (x + 50.0f > WIN_W) {
-            x = WIN_W - 50.0f;
+        if (x + (BALL_SIZE / 2.0f) > WIN_W) {
+            x = WIN_W - (BALL_SIZE / 2.0f);
             vx = -vx;
         }
-        if (x - 50.0f < 0.0f) {
-            x = 50.0f;
+        if (x - (BALL_SIZE / 2.0f) < 0.0f) {
+            x = (BALL_SIZE / 2.0f);
             vx = -vx;
         }
 
@@ -199,9 +218,11 @@ int main(void) {
         glClear(GL_COLOR_BUFFER_BIT);
 
         glUseProgram(program);
-        glUniform2f(pos_loc, x, y);
         glBindVertexArray(vao);
-        glDrawArrays(GL_TRIANGLES, 0, 6);
+
+        draw_rect(30.0f, left_y, PADDLE_W, PADDLE_H, 1.0f, 1.0f, 1.0f);
+        draw_rect(WIN_W - 30.0f, right_y, PADDLE_W, PADDLE_H, 1.0f, 1.0f, 1.0f);
+        draw_rect(x, y, BALL_SIZE, BALL_SIZE, 1.0f, 0.8f, 0.2f);
 
         SDL_GL_SwapWindow(window);
     }
