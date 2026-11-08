@@ -1,15 +1,20 @@
 #include <SDL3/SDL.h>
 #include <glad/glad.h>
 #include <stdio.h>
+#include <math.h>
 
 #define WIN_W 800
 #define WIN_H 600
 
-#define PADDLE_W  20.0f
-#define PADDLE_H  100.0f
-#define BALL_SIZE 20.0f
+#define PADDLE_W      20.0f
+#define PADDLE_H      100.0f
+#define PADDLE_SPEED  400.0f
+#define PADDLE_MARGIN 30.0f
 
-#define PADDLE_SPEED 400.0f
+#define BALL_SIZE  20.0f
+#define BALL_SPEED 400.0f
+
+#define MAX_BOUNCE_ANGLE 1.0f // radians. ~57deg
 
 static const char *vert_src =
     "#version 330 core\n"
@@ -100,6 +105,13 @@ static void draw_rect(float x, float y, float w, float h, float r, float g, floa
     glDrawArrays(GL_TRIANGLES, 0, 6);
 }
 
+static int rects_overlap(float ax, float ay, float aw, float ah,
+                         float bx, float by, float bw, float bh)
+{
+    return fabsf(ax - bx) < (aw + bw) / 2.0f
+        && fabsf(ay - by) < (ah + bh) / 2.0f;
+}
+
 int main(void) {
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
@@ -150,15 +162,17 @@ int main(void) {
     glUniformMatrix4fv(proj_loc, 1, GL_FALSE, proj);
 
 
-    pos_loc = glGetUniformLocation(program, "uPos");
-    size_loc = glGetUniformLocation(program, "uSize");
+    pos_loc   = glGetUniformLocation(program, "uPos");
+    size_loc  = glGetUniformLocation(program, "uSize");
     color_loc = glGetUniformLocation(program, "uColor");
 
     float x = WIN_W / 2.0f;
     float y = WIN_H / 2.0f;
-    float vx = 300.0f; // pixels per second
 
-    float left_y =  WIN_H / 2.0f;
+    float vx = 300.0f; // pixels per second
+    float vy = 150.0f;
+
+    float left_y  = WIN_H / 2.0f;
     float right_y = WIN_H / 2.0f;
 
     Uint64 last = SDL_GetTicksNS();
@@ -201,18 +215,57 @@ int main(void) {
             }
         }
 
+
         Uint64 now = SDL_GetTicksNS();
-        float dt = (float) (now - last) / 1000000000.0f;
+        float dt   = (float) (now - last) / 1000000000.0f;
         last = now;
 
+
+        float half = BALL_SIZE / 2.0f;
+
         x += vx * dt;
-        if (x + (BALL_SIZE / 2.0f) > WIN_W) {
-            x = WIN_W - (BALL_SIZE / 2.0f);
+        y += vy * dt;
+
+        // top and bottom walls
+        if (y - half < 0.0f) {
+            y = half;
+            vy = -vy;
+        }
+        if (y + half > WIN_H) {
+            y = WIN_H - half;
+            vy = -vy;
+        }
+
+        // left and right walls - TEMP (replace when score)
+        if (x - half < 0.0f) {
+            x = half;
             vx = -vx;
         }
-        if (x - (BALL_SIZE / 2.0f) < 0.0f) {
-            x = (BALL_SIZE / 2.0f);
+        if (x + half > WIN_W) {
+            x = WIN_W - half;
             vx = -vx;
+        }
+
+
+        float left_x  = PADDLE_MARGIN;
+        float right_x = WIN_W - PADDLE_MARGIN;
+
+        // left paddle
+        if (vx < 0.0f && rects_overlap(x, y, BALL_SIZE, BALL_SIZE, left_x, left_y, PADDLE_W, PADDLE_H)) {
+            float offset = (y - left_y) / ((PADDLE_H + BALL_SIZE) / 2.0f);
+            float angle = offset * MAX_BOUNCE_ANGLE;
+            vx = BALL_SPEED * cosf(angle);
+            vy = BALL_SPEED * sinf(angle);
+            x = left_x + (PADDLE_W + BALL_SIZE) / 2.0f;
+        }
+
+        // right paddle
+        if (vx > 0.0f && rects_overlap(x, y, BALL_SIZE, BALL_SIZE, right_x, right_y, PADDLE_W, PADDLE_H)) {
+            float offset = (y - right_y) / ((PADDLE_H + BALL_SIZE) / 2.0f);
+            float angle = offset * MAX_BOUNCE_ANGLE;
+            vx = -BALL_SPEED * cosf(angle);
+            vy =  BALL_SPEED * sinf(angle);
+            x = right_x - (PADDLE_W + BALL_SIZE) / 2.0f;
         }
 
 
@@ -239,8 +292,8 @@ int main(void) {
         glUseProgram(program);
         glBindVertexArray(vao);
 
-        draw_rect(30.0f, left_y, PADDLE_W, PADDLE_H, 1.0f, 1.0f, 1.0f);
-        draw_rect(WIN_W - 30.0f, right_y, PADDLE_W, PADDLE_H, 1.0f, 1.0f, 1.0f);
+        draw_rect(left_x,  left_y,  PADDLE_W, PADDLE_H, 1.0f, 1.0f, 1.0f);
+        draw_rect(right_x, right_y, PADDLE_W, PADDLE_H, 1.0f, 1.0f, 1.0f);
         draw_rect(x, y, BALL_SIZE, BALL_SIZE, 1.0f, 0.8f, 0.2f);
 
         SDL_GL_SwapWindow(window);
