@@ -9,6 +9,8 @@
 #define PADDLE_H  100.0f
 #define BALL_SIZE 20.0f
 
+#define PADDLE_SPEED 400.0f
+
 static const char *vert_src =
     "#version 330 core\n"
     "layout (location = 0) in vec2 aPos;\n"
@@ -212,6 +214,23 @@ int main(void) {
             x = (BALL_SIZE / 2.0f);
             vx = -vx;
         }
+
+
+        const bool *keys = SDL_GetKeyboardState(NULL);
+        
+        if (keys[SDL_SCANCODE_W])    left_y  += PADDLE_SPEED * dt;
+        if (keys[SDL_SCANCODE_S])    left_y  -= PADDLE_SPEED * dt;
+        if (keys[SDL_SCANCODE_UP])   right_y += PADDLE_SPEED * dt;
+        if (keys[SDL_SCANCODE_DOWN]) right_y -= PADDLE_SPEED * dt;
+
+        // keep the paddles on screen
+        float min_y = PADDLE_H / 2.0f;
+        float max_y = WIN_H - PADDLE_H / 2.0f;
+
+        if (left_y  < min_y) left_y  = min_y;
+        if (left_y  > max_y) left_y  = max_y;
+        if (right_y < min_y) right_y = min_y;
+        if (right_y > max_y) right_y = max_y;
 
 
         glClearColor(0.2f, 0.2f, 0.4f, 1.0f);
