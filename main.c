@@ -1,6 +1,8 @@
 #include <SDL3/SDL.h>
 #include <glad/glad.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
 #include <math.h>
 
 #define WIN_W 800
@@ -112,6 +114,13 @@ static int rects_overlap(float ax, float ay, float aw, float ah,
         && fabsf(ay - by) < (ah + bh) / 2.0f;
 }
 
+static void serve(float *vx, float *vy, int dir) {
+    // random angle between -0.5 and 0.5 rad
+    float angle = ((float) rand() / (float) RAND_MAX - 0.5f);
+    *vx = dir * BALL_SPEED * cosf(angle);
+    *vy = BALL_SPEED * sinf(angle);
+}
+
 int main(void) {
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
@@ -169,8 +178,15 @@ int main(void) {
     float x = WIN_W / 2.0f;
     float y = WIN_H / 2.0f;
 
-    float vx = 300.0f; // pixels per second
-    float vy = 150.0f;
+    float vx = 0.0f; // pixels per second
+    float vy = 0.0f;
+
+    int score_l = 0;
+    int score_r = 0;
+    int serve_dir = 1;
+    float serve_timer = 1.0f; // seconds until the ball launches
+
+    srand((unsigned) time(NULL));
 
     float left_y  = WIN_H / 2.0f;
     float right_y = WIN_H / 2.0f;
@@ -223,6 +239,13 @@ int main(void) {
 
         float half = BALL_SIZE / 2.0f;
 
+        if (serve_timer > 0.0f) {
+            serve_timer -= dt;
+            if (serve_timer <= 0.0f) {
+                serve(&vx, &vy, serve_dir);
+            }
+        }
+
         x += vx * dt;
         y += vy * dt;
 
@@ -236,14 +259,23 @@ int main(void) {
             vy = -vy;
         }
 
-        // left and right walls - TEMP (replace when score)
-        if (x - half < 0.0f) {
-            x = half;
-            vx = -vx;
-        }
-        if (x + half > WIN_W) {
-            x = WIN_W - half;
-            vx = -vx;
+        // ball left the court
+        if (x + half < 0.0f || x - half > WIN_W) {
+            if (x < 0.0f) {
+                score_r ++;
+            } else {
+                score_l ++;
+            }
+
+            printf("Score: %d - %d\n", score_l, score_r);
+
+            // serve towards the player that just lost the point
+            serve_dir = (x < 0.0f) ? -1 : 1;
+            x = WIN_W / 2.0f;
+            y = WIN_H / 2.0f;
+            vx = 0.0f;
+            vy = 0.0f;
+            serve_timer = 1.0f;
         }
 
 
